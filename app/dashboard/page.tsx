@@ -1,12 +1,52 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Camera, Plus, Flame, Apple, Zap, History, LayoutDashboard, Settings, User } from "lucide-react";
 
 export default function Dashboard() {
   const [isScanning, setIsScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  // Mock data for recent scans
+  // Handle turning the real camera on/off
+  useEffect(() => {
+    async function toggleCamera() {
+      if (isScanning) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" }, // Prefers rear camera on phones
+            audio: false,
+          });
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (err) {
+          console.error("Error accessing camera: ", err);
+          alert("Could not access camera. Please check your browser permissions.");
+          setIsScanning(false);
+        }
+      } else {
+        // Stop the camera tracks when turned off
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
+      }
+    }
+
+    toggleCamera();
+
+    // Clean up camera connection if user navigates away
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [isScanning]);
+
   const recentScans = [
     { id: 1, name: "Grilled Chicken Salad", calories: 420, protein: "45g", carbs: "12g", fat: "14g", time: "Today, 1:15 PM" },
     { id: 2, name: "Avocado Toast with Egg", calories: 380, protein: "18g", carbs: "24g", fat: "22g", time: "Today, 8:30 AM" },
@@ -97,30 +137,39 @@ export default function Dashboard() {
         <div className="grid md:grid-cols-3 gap-6">
           
           {/* Left/Middle: Live AI Scanner Module */}
-          <div className="md:col-span-2 bg-neutral-900/40 border border-neutral-900 rounded-3xl p-6 flex flex-col justify-between aspect-video md:aspect-auto min-h-[400px] relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
+          <div className="md:col-span-2 bg-neutral-950 border border-neutral-900 rounded-3xl p-6 flex flex-col justify-between aspect-video md:aspect-auto min-h-[440px] relative overflow-hidden group">
             
-            {/* Mock Camera Viewfinder Overlay */}
+            {/* Real Camera Viewport */}
+            {isScanning && (
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                className="absolute inset-0 w-full h-full object-cover scale-x-[-1] z-0"
+              />
+            )}
+
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none z-10" />
             <div className="absolute inset-6 border border-dashed border-neutral-800 rounded-xl pointer-events-none z-10 group-hover:border-indigo-500/50 transition-colors" />
 
             <div className="z-20">
               <span className="bg-indigo-500 text-white text-xs font-semibold px-2.5 py-1 rounded-md tracking-wider uppercase">AI Lens Engine</span>
-              <h2 className="text-xl font-bold mt-2">Visual Macro Recognition</h2>
+              <h2 className="text-xl font-bold mt-2 text-white drop-shadow">Visual Macro Recognition</h2>
             </div>
 
             <div className="flex flex-col items-center justify-center z-20 py-12">
               <button 
                 onClick={() => setIsScanning(!isScanning)}
-                className={`w-20 h-20 rounded-full border-4 flex items-center justify-center transition-all ${isScanning ? 'border-red-500 bg-red-500/20 animate-pulse' : 'border-white bg-white/10 hover:scale-105'}`}
+                className={`w-20 h-20 rounded-full border-4 flex items-center justify-center transition-all shadow-xl z-30 ${isScanning ? 'border-red-500 bg-red-500/20 hover:bg-red-500/40' : 'border-white bg-white/10 hover:scale-105 hover:bg-white/20'}`}
               >
                 <Camera className={`w-8 h-8 ${isScanning ? 'text-red-400' : 'text-white'}`} />
               </button>
-              <p className="text-sm text-neutral-400 mt-4 font-medium">
-                {isScanning ? "Accessing system camera structures..." : "Click to initialize camera scanner"}
+              <p className="text-sm text-neutral-200 mt-4 font-medium drop-shadow-md">
+                {isScanning ? "Camera Live — Framing food target..." : "Click to initialize camera scanner"}
               </p>
             </div>
 
-            <div className="z-20 text-xs text-neutral-500">
+            <div className="z-20 text-xs text-neutral-400 font-medium drop-shadow">
               Supports volumetric estimation up to 98.4% accuracy.
             </div>
           </div>
